@@ -54,19 +54,31 @@ modal.querySelector('.modal-close').addEventListener('click', closeModal);
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-// Contact form: this is a normal HTML form that posts straight to FormSubmit
-// (formsubmit.co), which forwards the message to your email. No fetch/AJAX
-// is used here, so it works even when the page is opened from a local file
-// rather than a hosted URL. This script only shows a "Sending..." message
-// while the browser navigates to FormSubmit.
+// Contact form: submits into a Google Form (linked to a Google Sheet), via a
+// hidden iframe so the visitor's page never navigates away. Google Forms
+// doesn't send a readable cross-origin response, so once the iframe finishes
+// loading we simply assume the submission went through and show a thank-you
+// message.
 const form = document.getElementById('contact-form');
 const status = form.querySelector('.form-status');
 const sendBtn = form.querySelector('button[type="submit"]');
+const hiddenIframe = document.getElementById('hidden_iframe');
+let formSubmitted = false;
 
 form.addEventListener('submit', () => {
+    // Honeypot: if this hidden field got filled in, it's almost certainly a bot
+    if (form._honey.value) return;
+
+    formSubmitted = true;
     status.className = 'form-status';
     status.textContent = 'Sending...';
     sendBtn.disabled = true;
-    // Let the form submit normally; FormSubmit will show its own
-    // confirmation page (or your activation prompt, the first time).
+});
+
+hiddenIframe.addEventListener('load', () => {
+    if (!formSubmitted) return; // ignore the iframe's own initial blank load
+    status.textContent = 'Thanks, your message was sent. I will reply soon.';
+    sendBtn.disabled = false;
+    form.reset();
+    formSubmitted = false;
 });
