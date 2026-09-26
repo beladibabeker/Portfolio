@@ -64,6 +64,16 @@ const status = form.querySelector('.form-status');
 const sendBtn = form.querySelector('button[type="submit"]');
 const hiddenIframe = document.getElementById('hidden_iframe');
 let formSubmitted = false;
+let confirmTimer = null;
+
+function confirmSent() {
+    if (!formSubmitted) return;
+    status.textContent = 'Thanks, your message was sent. I will reply soon.';
+    sendBtn.disabled = false;
+    form.reset();
+    formSubmitted = false;
+    clearTimeout(confirmTimer);
+}
 
 form.addEventListener('submit', () => {
     // Honeypot: if this hidden field got filled in, it's almost certainly a bot
@@ -73,12 +83,16 @@ form.addEventListener('submit', () => {
     status.className = 'form-status';
     status.textContent = 'Sending...';
     sendBtn.disabled = true;
+
+    // Fallback: some browsers/hosts never fire the iframe's load event for a
+    // cross-origin destination like Google Forms, even though the submission
+    // itself goes through. Don't leave the button stuck on "Sending..." —
+    // show the confirmation after a few seconds regardless.
+    clearTimeout(confirmTimer);
+    confirmTimer = setTimeout(confirmSent, 3000);
 });
 
 hiddenIframe.addEventListener('load', () => {
     if (!formSubmitted) return; // ignore the iframe's own initial blank load
-    status.textContent = 'Thanks, your message was sent. I will reply soon.';
-    sendBtn.disabled = false;
-    form.reset();
-    formSubmitted = false;
+    confirmSent();
 });
