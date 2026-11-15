@@ -54,45 +54,31 @@ modal.querySelector('.modal-close').addEventListener('click', closeModal);
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-// Contact form: submits into a Google Form (linked to a Google Sheet), via a
-// hidden iframe so the visitor's page never navigates away. Google Forms
-// doesn't send a readable cross-origin response, so once the iframe finishes
-// loading we simply assume the submission went through and show a thank-you
-// message.
+// Contact form: sends the fields to a Google Form (linked to a Google Sheet).
+// Google doesn't let the page read its reply, so "no-cors" can only tell us
+// whether the request left the browser. A network failure shows an error with
+// an email fallback; a normal send shows a careful message, not a guarantee.
 const form = document.getElementById('contact-form');
 const status = form.querySelector('.form-status');
 const sendBtn = form.querySelector('button[type="submit"]');
-const hiddenIframe = document.getElementById('hidden_iframe');
-let formSubmitted = false;
-let confirmTimer = null;
 
-function confirmSent() {
-    if (!formSubmitted) return;
-    status.textContent = 'Thanks, your message was sent. I will reply soon.';
-    sendBtn.disabled = false;
-    form.reset();
-    formSubmitted = false;
-    clearTimeout(confirmTimer);
-}
-
-form.addEventListener('submit', () => {
-    // Honeypot: if this hidden field got filled in, it's almost certainly a bot
+form.addEventListener('submit', async e => {
+    e.preventDefault();
+    // Honeypot: bots fill this hidden field, so drop their submissions
     if (form._honey.value) return;
 
-    formSubmitted = true;
     status.className = 'form-status';
     status.textContent = 'Sending...';
     sendBtn.disabled = true;
 
-    // Fallback: some browsers/hosts never fire the iframe's load event for a
-    // cross-origin destination like Google Forms, even though the submission
-    // itself goes through. Don't leave the button stuck on "Sending..." —
-    // show the confirmation after a few seconds regardless.
-    clearTimeout(confirmTimer);
-    confirmTimer = setTimeout(confirmSent, 3000);
-});
-
-hiddenIframe.addEventListener('load', () => {
-    if (!formSubmitted) return; // ignore the iframe's own initial blank load
-    confirmSent();
+    try {
+        await fetch(form.action, { method: 'POST', mode: 'no-cors', body: new FormData(form) });
+        status.textContent = 'Your message was submitted. If you do not hear back, please email me directly.';
+        form.reset();
+    } catch (err) {
+        status.className = 'form-status error';
+        status.textContent = 'The message could not be sent. Please email me at beladibabeker@gmail.com instead.';
+    } finally {
+        sendBtn.disabled = false;
+    }
 });
